@@ -1,19 +1,22 @@
 package com.pactera.batch.config.job;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
-import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
 import org.springframework.batch.item.file.mapping.FieldSetMapper;
 import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.batch.item.file.transform.FieldSet;
+import org.springframework.batch.item.support.CompositeItemProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
@@ -35,6 +38,12 @@ public class DbJob {
 	@Autowired
 	private ItemWriter<User> writeDb;	
 	
+	@Autowired
+	private ItemProcessor<User, User> myProcessor;
+	
+	@Autowired
+	private ItemProcessor<User, User> myProcessor1;
+	
 	@Bean
 	public Job DbWriteJob() {
 		return jobBuilderFactory.get("DbWriteJob").start(DbWriteStep()).build();
@@ -45,6 +54,7 @@ public class DbJob {
 		return stepBuilderFactory.get("DbWriteStep")
 				.<User,User>chunk(10)
 				.reader(myflatFileReader())
+				.processor(processor())
 				.writer(writeDb)
 				.build();
 	}
@@ -75,5 +85,15 @@ public class DbJob {
 		mapper.afterPropertiesSet();
 		reader.setLineMapper(mapper);
 		return reader;
+	}
+	
+	@Bean
+	public CompositeItemProcessor<User, User> processor(){
+		CompositeItemProcessor<User, User> processor = new CompositeItemProcessor<User, User>();
+		List<ItemProcessor<User, User>> list = new ArrayList<>();
+		list.add(myProcessor);
+		list.add(myProcessor1);
+		processor.setDelegates(list);
+		return processor;
 	}
 }
