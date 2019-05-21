@@ -21,13 +21,13 @@ import com.pactera.batch.model.User;
 public class RestartReader implements ItemStreamReader<User>{
 	
 	private FlatFileItemReader<User> fileReader = new FlatFileItemReader<User>();
-	private Long curLine=0L;
+	private int curLine=0;
 	private boolean restart = false;
 	private ExecutionContext executionContext;
 	
 	public RestartReader() {
 		fileReader.setResource(new ClassPathResource("user.txt"));
-		fileReader.setLinesToSkip(1);//跳过第一行
+		//fileReader.setLinesToSkip(1);//跳过第一行
 		//解析
 		DelimitedLineTokenizer tokenizer = new DelimitedLineTokenizer();
 		tokenizer.setNames(new String[]{"id","username","password","age"});
@@ -52,12 +52,22 @@ public class RestartReader implements ItemStreamReader<User>{
 	@Override
 	public void open(ExecutionContext executionContext) throws ItemStreamException {
 		// TODO Auto-generated method stub
-		
+		this.executionContext= executionContext;
+		if(executionContext.containsKey("curLine")) {
+			this.curLine = executionContext.getInt("curLine");
+			this.restart = true;
+		}else {
+			this.curLine = 0;
+			executionContext.put("curLine", this.curLine);
+			System.out.println("start reading frme line "+this.curLine+1);
+		}
 	}
 
 	@Override
 	public void update(ExecutionContext executionContext) throws ItemStreamException {
 		// TODO Auto-generated method stub
+		executionContext.put("curLine", this.curLine);
+		System.out.println("currentLine : " + this.curLine);
 		
 	}
 
@@ -71,16 +81,17 @@ public class RestartReader implements ItemStreamReader<User>{
 	public User read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
 		// TODO Auto-generated method stub
 		User user = new User();
+		this.curLine++;
 		if(restart) {
-			fileReader.setLinesToSkip(this.curLine.intValue()-1);
+			fileReader.setLinesToSkip(this.curLine-1);
 			restart = false ;
-			System.out.println("restart reading from id line "+this.curLine);
+			System.out.println("restart reading from line "+this.curLine);
 		}
 		fileReader.open(executionContext);
 		user=fileReader.read();
 		
 		if(user !=null && user.getUsername().equals("wrong")) {
-			throw new RuntimeException("something wrong : Username : "+user.getUsername());
+			throw new RuntimeException("something wrong : Username : "+user.getUsername()+" line:"+this.curLine);
 		}
 		
 		return user;
